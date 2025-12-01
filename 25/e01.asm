@@ -1,0 +1,105 @@
+format ELF64 executable 3
+
+; syscall No   return  arg0  arg1  arg2  arg3  arg4  arg5
+; rax          rax     rdi   rsi   rdx   r10   r8    r9
+
+entry start
+segment readable executable
+
+start:
+  ; open file as read only
+  mov rax, 2
+  mov rdi, fn
+  mov rsi, 0
+  mov rdx, 0
+  syscall
+
+  ; Exit with status 1 if fd < 0
+  cmp rax, 0
+  jl error_exit
+
+  ; Save fd
+  mov [fd], eax
+
+read_loop:
+  mov rax, 0
+  mov edi, [fd]
+  lea rsi, [buffer]
+  mov rdx, 1024
+  syscall
+
+  mov rcx, rax
+  mov r8, rsi
+
+loop_buffer:
+
+  cmp rcx, 0
+  je close_file
+
+  mov al, [r8]; load current character
+
+  cmp al, 'R'
+  je handle_dir
+
+  cmp al, 'L'
+  je handle_dir
+
+  cmp al, 10 ; '\n'
+  je handle_newline
+
+  jmp handle_num
+
+handle_dir:
+  jmp next_char
+
+handle_num:
+  sub al, '0' ; Convert to digit
+  mov rax, [diff]
+  imul rax, 10
+  movzx rbx, al
+  add rax, rbx
+  mov [diff], rax
+  jmp next_char
+
+handle_newline:
+  jmp next_char
+
+next_char:
+  inc r8 ; char pointer
+  dec rcx ; byte counter
+  jmp loop_buffer
+
+close_file:
+  mov rax, 3
+  mov edi, [fd]
+  syscall
+  jmp exit
+
+error_exit:
+  mov rax, 1
+  mov rdi, 2
+  lea rsi, [error]
+  mov rdx, 6
+  syscall
+
+  mov rax, 60
+  mov rdi, 1
+  syscall
+
+exit:
+  mov rax, 60
+  mov rdi, [diff]
+  syscall
+
+segment readable writable
+
+fn db "e01-test2.txt", 0
+fn_len = $ - fn
+fd dd 0
+buffer rb 1024
+
+error db "ERROR", 10
+
+dial dq 50
+diff dq 0
+
