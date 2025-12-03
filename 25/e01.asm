@@ -73,60 +73,62 @@ loop_buffer:
   mov [diff], rax
   mov [cur_num], 0
 
+  ; Do the math
   mov rax, [dial]
 
   cmp r9b, 0
   je .calc_right
 
+  ; left means subtract
   sub rax, [diff]
   jmp .modulo
 
+  ; right means add
   .calc_right:
   add rax, [diff]
 
+
   .modulo:
   mov [diff], 0
-  mov [new_dial], rax
+  mov [newDial], rax
 
-  ; TODO FIX THIS SHIT
   cqo
   idiv [divisor]  ; (rdx:rax) / divisor
 
   cmp     rax, 0
   jge     .quotient_ok
-  neg     rax
+  neg     rax ; Make quotient non-negative
   .quotient_ok:
 
   cmp     rdx, 0
   jge     .ok
-  add     rdx, [divisor]
+  add     rdx, [divisor] ; Make dividend non negative
   .ok:
 
-  mov rbx, [dial]
-  test rbx, rbx
-  jz .update_dial
-
-  mov rbx, [new_dial]
-  cmp rbx, 99
-  jg .add_part_two
-
-  test rbx, rbx
-  jns .update_dial
-
-  .add_part_two:
-  add [total_part_two], rax
-
-  .update_dial:
-  mov rax, rdx
-  mov [dial], rax
-
-  cmp rax, 0
-  jnz .next_char
+  ; Increase totals
+  cmp rdx, 0
+  jnz .check_crossing
 
   inc [total_part_one]
+
+  .check_crossing:
+  add [total_part_two], rax
+
+  mov rbx, [newDial]
+  cmp rbx, 0
+  jg .update_dial ; skip if rbx > 0
+
+  mov rbx, [dial]
+  cmp rbx, 0
+  je .update_dial ; skip 
+
   inc [total_part_two]
 
+  .update_dial:
+  mov [dial], rdx
+
   .next_char:
+  xor rbx, rbx ; empty out rbx
   inc r8 ; char pointer
   dec rcx ; byte counter
   jmp loop_buffer
@@ -190,16 +192,15 @@ exit:
 segment readable writable
 
 fn db "e01-input.txt", 0
-fn_len = $ - fn
 fd dd 0
 
 buf rb 1024
-error_msg db "ERROR: Failed to read file", 27
+error_msg db "ERROR: Failed to read file", 10
 lf db 10
 
 cur_num dq 0
+newDial dq 50
 dial dq 50
-new_dial dq 0
 diff dq 0
 total_part_one dq 0
 total_part_two dq 0
